@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="theme-color" content="#5b2d90"/>
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <link rel="icon" href="/icons/icon-192x192.png"/>
+  <title>Parking Coin</title>
+  <style>
+    body { margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f4f4; display: flex; flex-direction: column; height: 100vh; }
+    header { background: #5b2d90; color: white; padding: 1em; text-align: center; font-size: 1.5em; }
+    #map { flex: 1; }
+    .controls { padding: 1em; background: white; display: flex; flex-direction: column; gap: 0.5em; }
+    button { background: #5b2d90; color: white; border: none; padding: 1em; border-radius: 10px; font-size: 1em; }
+    footer { background: #eee; text-align: center; padding: 0.5em; font-size: 0.9em; }
+    .balance, .status { font-weight: bold; font-size: 1.1em; }
+    input, select { padding: 0.5em; border-radius: 5px; border: 1px solid #ccc; font-size: 1em; }
+  </style>
+</head>
+<body>
+  <header>Parking Coin</header>
+  <div id="map"></div>
+  <div class="controls">
+    <div class="status">Status: <span id="status">Not Parked</span></div>
+    <div class="balance">Balance: <span id="balance">10 PI</span></div>
+    <label for="duration">Select duration:</label>
+    <select id="duration">
+      <option value="30">30 minutes</option>
+      <option value="60">1 hour</option>
+      <option value="120">2 hours</option>
+    </select>
+    <input type="text" id="license" placeholder="Enter license plate"/>
+    <button onclick="startParking()" id="startBtn">Start Parking</button>
+    <button onclick="stopParking()" id="stopBtn" disabled>Stop Parking</button>
+    <button onclick="chargeEV()">Charge Electric Vehicle</button>
+    <p id="timer">Parking time: 0 min</p>
+  </div>
+  <footer>© 2025 Harispb | Powered by Pi Network</footer>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    let map = L.map('map').setView([0, 0], 15);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(pos => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        map.setView([lat, lng], 17);
+        L.marker([lat, lng]).addTo(map).bindPopup("You are here").openPopup();
+      });
+    }
+
+    let timerInterval, startTime, durationLimit = 0;
+
+    function startParking() {
+      const duration = parseInt(document.getElementById('duration').value);
+      const license = document.getElementById('license').value.trim();
+      if (!license) return alert("Please enter a license plate number.");
+      durationLimit = duration;
+      startTime = Date.now();
+      document.getElementById('startBtn').disabled = true;
+      document.getElementById('stopBtn').disabled = false;
+      document.getElementById('status').innerText = 'Parked';
+      timerInterval = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - startTime) / 60000);
+        document.getElementById('timer').innerText = `Parking time: ${elapsed} min`;
+        if (elapsed >= durationLimit) {
+          notifyEnd();
+          stopParking();
+        }
+      }, 1000);
+    }
+
+    function stopParking() {
+      clearInterval(timerInterval);
+      document.getElementById('startBtn').disabled = false;
+      document.getElementById('stopBtn').disabled = true;
+      document.getElementById('timer').innerText = 'Parking time: 0 min';
+      document.getElementById('status').innerText = 'Not Parked';
+    }
+
+    function notifyEnd() {
+      if (Notification.permission === 'granted') {
+        new Notification('Parking time expired!');
+      } else if (Notification.permission !== 'denied') {
+        Notification.requestPermission().then(permission => {
+          if (permission === 'granted') {
+            new Notification('Parking time expired!');
+          }
+        });
+      }
+    }
+
+    function chargeEV() {
+      alert('EV Charging session started. Cost: 1 PI/kWh');
+    }
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./service-worker.js')
+        .then(() => console.log('Service Worker registered'))
+        .catch(err => console.error('Service Worker registration failed:', err));
+    }
+  </script>
+</body>
+</html>
